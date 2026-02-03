@@ -1,13 +1,36 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { Layout } from '@/components/layout/Layout';
+import { HeroBanner } from '@/components/home/HeroBanner';
+import { CategoryBar } from '@/components/home/CategoryBar';
+import { FlashSale } from '@/components/home/FlashSale';
+import { ProductGrid } from '@/components/products/ProductGrid';
+import { products } from '@/data/mockData';
 
 const Index = () => {
+  const featuredProducts = products.filter(p => p.is_featured);
+  const onSaleProducts = products.filter(p => p.is_on_sale);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <Layout>
+      {/* Hero Banner */}
+      <HeroBanner />
+
+      {/* Category Navigation */}
+      <CategoryBar />
+
+      {/* Flash Sale Section */}
+      <div className="border-t bg-secondary/30">
+        <FlashSale products={onSaleProducts.slice(0, 6)} />
       </div>
-    </div>
+
+      {/* Main Content */}
+      <div className="container space-y-6 py-6">
+        {/* Featured Products */}
+        <ProductGrid products={featuredProducts} title="🔥 Produtos em Destaque" />
+
+        {/* All Products */}
+        <ProductGrid products={products} title="📦 Recomendados para Você" />
+      </div>
+    </Layout>
   );
 };
 
