@@ -9,14 +9,16 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { createPayment, type PaymentMethod } from '@/integrations/payments/gateway';
 
 const Checkout = () => {
   const navigate = useNavigate();
   const { items, totalPrice, clearCart } = useCart();
   const { toast } = useToast();
   
-  const [paymentMethod, setPaymentMethod] = useState('pix');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pixQr, setPixQr] = useState<{ imageUrl: string; text?: string } | null>(null);
 
   const pixDiscount = totalPrice * 0.1;
   const finalPrice = paymentMethod === 'pix' ? totalPrice - pixDiscount : totalPrice;
@@ -38,21 +40,77 @@ const Checkout = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Se já geramos o QR Code PIX, este clique passa a ser a confirmação manual do pagamento
+    if (paymentMethod === 'pix' && pixQr) {
+      toast({
+        title: 'Pedido realizado com sucesso! 🎉',
+        description: 'Pagamento via PIX confirmado.',
+      });
+      clearCart();
+      navigate('/');
+      return;
+    }
+
     setIsProcessing(true);
 
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      const result = await createPayment({
+        amount: finalPrice,
+        method: paymentMethod,
+        currency: 'BRL',
+      });
 
-    toast({
-      title: 'Pedido realizado com sucesso! 🎉',
-      description: paymentMethod === 'pix' 
-        ? 'Escaneie o QR Code para pagar via PIX'
-        : 'Pagamento aprovado! Seu pedido está sendo preparado.',
-    });
+      if (result.type === 'pix_qr') {
+        setPixQr({
+          imageUrl: result.qrCodeImageUrl,
+          text: result.qrCodeText,
+        });
+        toast({
+          title: 'QR Code PIX gerado',
+          description: 'Pague com o app do seu banco e depois clique em "Já paguei, concluir pedido".',
+        });
+        setIsProcessing(false);
+        return;
+      }
 
-    clearCart();
-    setIsProcessing(false);
-    navigate('/');
+      if (result.type === 'redirect') {
+        // Redireciona para o gateway (Stripe, Mercado Pago, etc)
+        window.location.href = result.url;
+        return;
+      }
+
+      if (result.type === 'error') {
+        toast({
+          title: 'Falha ao processar pagamento',
+          description: result.message,
+          variant: 'destructive',
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      // Sucesso (mock ou confirmação imediata)
+      toast({
+        title: 'Pedido realizado com sucesso! 🎉',
+        description:
+          paymentMethod === 'pix'
+            ? 'Pagamento via PIX confirmado.'
+            : 'Pagamento aprovado! Seu pedido está sendo preparado.',
+      });
+
+      clearCart();
+      setIsProcessing(false);
+      navigate('/');
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Erro inesperado',
+        description: 'Não foi possível processar o pagamento. Tente novamente.',
+        variant: 'destructive',
+      });
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -239,13 +297,41 @@ const Checkout = () => {
                   </div>
                 </div>
 
+                {paymentMethod === 'pix' && pixQr && (
+                  <div className="mt-4 space-y-3 rounded-lg border bg-secondary/20 p-3 text-center">
+                    <p className="text-sm font-medium">Pague com PIX</p>
+                    <p className="text-xs text-muted-foreground">
+                      Escaneie o QR Code abaixo com o app do seu banco.
+                    </p>
+                    <div className="flex justify-center">
+                      <img
+                        src={pixQr.imageUrl}
+                        alt="QR Code PIX"
+                        className="h-48 w-48 rounded-lg bg-white p-2 shadow-sm"
+                      />
+                    </div>
+                    {pixQr.text && (
+                      <div className="mt-2 text-left text-xs">
+                        <p className="mb-1 font-medium">Copia e cola:</p>
+                        <div className="max-h-24 overflow-y-auto rounded bg-background p-2 font-mono text-[10px] text-muted-foreground">
+                          {pixQr.text}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <Button
                   type="submit"
                   size="lg"
                   className="mt-6 w-full bg-gradient-primary"
                   disabled={isProcessing}
                 >
-                  {isProcessing ? 'Processando...' : 'Finalizar Pedido'}
+                  {isProcessing
+                    ? 'Processando...'
+                    : paymentMethod === 'pix' && pixQr
+                      ? 'Já paguei, concluir pedido'
+                      : 'Finalizar Pedido'}
                 </Button>
               </div>
             </div>

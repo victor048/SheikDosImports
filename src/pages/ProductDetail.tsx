@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCart } from '@/contexts/CartContext';
+import { useWishlist } from '@/contexts/WishlistContext';
+import { useToast } from '@/hooks/use-toast';
 import { products } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +15,8 @@ const ProductDetail = () => {
   const { slug } = useParams();
   const product = products.find(p => p.slug === slug);
   const { addItem } = useCart();
+  const { toggleItem, isFavorite } = useWishlist();
+  const { toast } = useToast();
   
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -34,6 +38,15 @@ const ProductDetail = () => {
 
   const handleAddToCart = () => {
     addItem(product, quantity, selectedVariations);
+  };
+
+  const handleToggleWishlist = () => {
+    const wasFavorite = isFavorite(product.id);
+    toggleItem(product);
+    toast({
+      title: wasFavorite ? 'Removido dos favoritos' : 'Adicionado aos favoritos',
+      description: product.name,
+    });
   };
 
   return (
@@ -206,8 +219,17 @@ const ProductDetail = () => {
                 <ShoppingCart className="mr-2 h-5 w-5" />
                 Adicionar ao Carrinho
               </Button>
-              <Button size="lg" variant="outline">
-                <Heart className="h-5 w-5" />
+              <Button
+                size="lg"
+                variant={isFavorite(product.id) ? 'default' : 'outline'}
+                onClick={handleToggleWishlist}
+              >
+                <Heart
+                  className={cn(
+                    'h-5 w-5',
+                    isFavorite(product.id) && 'fill-destructive text-destructive'
+                  )}
+                />
               </Button>
               <Button size="lg" variant="outline">
                 <Share2 className="h-5 w-5" />

@@ -7,25 +7,32 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate login
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    const formData = new FormData(e.currentTarget);
+    const email = String(formData.get('email') || '').trim();
+    const password = String(formData.get('password') || '');
+
+    await login({ email, password });
+
     toast({
       title: 'Login realizado com sucesso!',
-      description: 'Bem-vindo de volta!',
+      description:
+        email.toLowerCase() === 'admin@Lacerda Express.com'
+          ? 'Bem-vindo ao painel administrativo!'
+          : 'Bem-vindo de volta!',
     });
-    
+
     setIsLoading(false);
     navigate('/');
   };
@@ -58,7 +65,7 @@ const Login = () => {
         <div className="w-full max-w-md space-y-6">
           {/* Logo */}
           <div className="text-center">
-            <h1 className="text-3xl font-extrabold text-primary">MegaShop</h1>
+            <h1 className="text-3xl font-extrabold text-primary">Lacerda Express</h1>
             <p className="mt-2 text-muted-foreground">Sua loja favorita</p>
           </div>
 
@@ -77,6 +84,7 @@ const Login = () => {
                     <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="email"
+                      name="email"
                       type="email"
                       placeholder="seu@email.com"
                       className="pl-10"
@@ -91,6 +99,7 @@ const Login = () => {
                     <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="password"
+                      name="password"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       className="pl-10 pr-10"

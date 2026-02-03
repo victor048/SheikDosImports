@@ -4,6 +4,8 @@ import { Product } from '@/types/store';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
+import { useWishlist } from '@/contexts/WishlistContext';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 interface ProductCardProps {
@@ -13,6 +15,8 @@ interface ProductCardProps {
 
 export function ProductCard({ product, className }: ProductCardProps) {
   const { addItem } = useCart();
+  const { toggleItem, isFavorite } = useWishlist();
+  const { toast } = useToast();
   const discount = product.original_price
     ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
     : 0;
@@ -21,6 +25,17 @@ export function ProductCard({ product, className }: ProductCardProps) {
     e.preventDefault();
     e.stopPropagation();
     addItem(product, 1);
+  };
+
+  const handleToggleWishlist = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const wasFavorite = isFavorite(product.id);
+    toggleItem(product);
+    toast({
+      title: wasFavorite ? 'Removido dos favoritos' : 'Adicionado aos favoritos',
+      description: product.name,
+    });
   };
 
   return (
@@ -58,13 +73,13 @@ export function ProductCard({ product, className }: ProductCardProps) {
         <Button
           variant="ghost"
           size="icon"
-          className="absolute right-2 top-2 h-8 w-8 rounded-full bg-white/80 text-muted-foreground opacity-0 backdrop-blur-sm transition-opacity hover:bg-white hover:text-destructive group-hover:opacity-100"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
+          className={cn(
+            'absolute right-2 top-2 h-8 w-8 rounded-full bg-white/80 text-muted-foreground opacity-0 backdrop-blur-sm transition-opacity hover:bg-white group-hover:opacity-100',
+            isFavorite(product.id) && 'text-destructive'
+          )}
+          onClick={handleToggleWishlist}
         >
-          <Heart className="h-4 w-4" />
+          <Heart className={cn('h-4 w-4', isFavorite(product.id) && 'fill-destructive')} />
         </Button>
 
         {/* Quick Add Button */}
