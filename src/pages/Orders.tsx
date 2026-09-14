@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Package, ShoppingBag, CreditCard, QrCode, ChevronRight } from 'lucide-react';
+import { useOrders } from '@/hooks/useOrders';
+import type { OrderStatus, LocalOrder } from '@/lib/localDb';
 
 type OrdersTab = 'a-pagar' | 'preparando' | 'a-caminho' | 'historico';
 
@@ -11,63 +15,104 @@ const TABS: Array<{ value: OrdersTab; label: string }> = [
   { value: 'a-pagar', label: 'A pagar' },
   { value: 'preparando', label: 'Preparando' },
   { value: 'a-caminho', label: 'A caminho' },
-  { value: 'historico', label: 'Histórico' },
+  { value: 'historico', label: 'Historico' },
 ];
 
-type DemoOrderStatus = 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
-type DemoOrder = {
-  id: string;
-  created_at: string;
-  total: number;
-  status: DemoOrderStatus;
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  'a-pagar': 'Aguardando pagamento',
+  'preparando': 'Em preparacao',
+  'a-caminho': 'Em transito',
+  'historico': 'Entregue',
 };
 
-const demoOrders: DemoOrder[] = [
-  { id: '0001', created_at: '2026-02-03', total: 199.9, status: 'pending' },
-  { id: '0002', created_at: '2026-02-02', total: 89.9, status: 'paid' },
-  { id: '0003', created_at: '2026-02-01', total: 459.9, status: 'shipped' },
-  { id: '0004', created_at: '2026-01-25', total: 129.9, status: 'delivered' },
-];
+const STATUS_COLORS: Record<OrderStatus, string> = {
+  'a-pagar': 'bg-yellow-100 text-yellow-700',
+  'preparando': 'bg-blue-100 text-blue-700',
+  'a-caminho': 'bg-orange-100 text-orange-700',
+  'historico': 'bg-green-100 text-green-700',
+};
 
 function getTabFromSearchParam(v: string | null): OrdersTab {
   if (v === 'a-pagar' || v === 'preparando' || v === 'a-caminho' || v === 'historico') return v;
   return 'a-pagar';
 }
 
-function badgeForStatus(status: DemoOrderStatus) {
-  switch (status) {
-    case 'pending':
-      return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Pendente</Badge>;
-    case 'paid':
-      return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Pago</Badge>;
-    case 'shipped':
-      return <Badge className="bg-sky-100 text-sky-700 hover:bg-sky-100">Enviado</Badge>;
-    case 'delivered':
-      return <Badge className="bg-zinc-100 text-zinc-700 hover:bg-zinc-100">Entregue</Badge>;
-    case 'cancelled':
-      return <Badge className="bg-rose-100 text-rose-700 hover:bg-rose-100">Cancelado</Badge>;
-    default:
-      return <Badge variant="outline">—</Badge>;
-  }
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
-function ordersForTab(tab: OrdersTab, orders: DemoOrder[]) {
-  if (tab === 'a-pagar') return orders.filter((o) => o.status === 'pending');
-  if (tab === 'preparando') return orders.filter((o) => o.status === 'paid');
-  if (tab === 'a-caminho') return orders.filter((o) => o.status === 'shipped');
-  return orders.filter((o) => o.status === 'delivered' || o.status === 'cancelled');
+function OrderCard({ order }: { order: LocalOrder }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <p className="text-xs text-muted-foreground">Pedido</p>
+            <p className="font-mono text-sm font-medium">{order.id.slice(0, 8).toUpperCase()}</p>
+          </div>
+          <Badge className={STATUS_COLORS[order.status]}>
+            {STATUS_LABELS[order.status]}
+          </Badge>
+        </div>
+
+        <div className="space-y-2 mb-3">
+          {order.items.map((item) => (
+            <div key={item.id} className="flex items-center gap-3">
+              {item.product_image ? (
+                <img
+                  src={item.product_image}
+                  alt={item.product_name}
+                  className="h-10 w-10 rounded-md object-cover"
+                />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
+                  <Package className="h-5 w-5 text-muted-foreground" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="truncate text-sm font-medium">{item.product_name}</p>
+                <p className="text-xs text-muted-foreground">Qtd: {item.quantity}</p>
+              </div>
+              <span className="text-sm font-medium">
+                R$ {(item.product_price * item.quantity).toFixed(2).replace('.', ',')}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t pt-3 space-y-1">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground flex items-center gap-1">
+              {order.payment_method === 'pix' ? (
+                <><QrCode className="h-3 w-3" /> PIX</>
+              ) : (
+                <><CreditCard className="h-3 w-3" /> Cartao</>
+              )}
+            </span>
+            <span className="font-bold">Total: R$ {order.total.toFixed(2).replace('.', ',')}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">{formatDate(order.created_at)}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 const Orders = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<OrdersTab>(() => getTabFromSearchParam(searchParams.get('status')));
+  const { data: orders = [] } = useOrders(tab);
 
   useEffect(() => {
     const next = getTabFromSearchParam(searchParams.get('status'));
     setTab(next);
   }, [searchParams]);
-
-  const orders = useMemo(() => ordersForTab(tab, demoOrders), [tab]);
 
   return (
     <Layout>
@@ -100,29 +145,33 @@ const Orders = () => {
 
           {TABS.map((t) => (
             <TabsContent key={t.value} value={t.value} className="mt-4">
-              {orders.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Nenhum pedido encontrado nesta categoria.
-                </p>
-              ) : (
-                <div className="grid gap-3">
+              {orders.length > 0 ? (
+                <div className="space-y-3">
                   {orders.map((order) => (
-                    <Card key={order.id}>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="flex items-center justify-between text-base">
-                          <span>Pedido #{order.id}</span>
-                          {badgeForStatus(order.status)}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Data: {order.created_at}</span>
-                        <span className="font-semibold">
-                          R$ {order.total.toFixed(2).replace('.', ',')}
-                        </span>
-                      </CardContent>
-                    </Card>
+                    <OrderCard key={order.id} order={order} />
                   ))}
                 </div>
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="rounded-full bg-secondary p-4 mb-4">
+                      <Package className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-1">Nenhum pedido</h3>
+                    <p className="text-sm text-muted-foreground max-w-sm mb-4">
+                      {t.value === 'a-pagar' && 'Voce nao tem pedidos aguardando pagamento.'}
+                      {t.value === 'preparando' && 'Nenhum pedido em preparacao no momento.'}
+                      {t.value === 'a-caminho' && 'Nenhum pedido em transito.'}
+                      {t.value === 'historico' && 'Seu historico de pedidos esta vazio.'}
+                    </p>
+                    <Link to="/">
+                      <Button variant="outline" size="sm">
+                        <ShoppingBag className="mr-2 h-4 w-4" />
+                        Ver Produtos
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
               )}
             </TabsContent>
           ))}
@@ -133,4 +182,3 @@ const Orders = () => {
 };
 
 export default Orders;
-

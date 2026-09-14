@@ -2,29 +2,10 @@ import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
+import { Plus, Package, ShoppingCart, BarChart3 } from "lucide-react";
 
 const AdminDashboard = () => {
-  const { isAdmin, user } = useAuth();
-
-  if (!isAdmin) {
-    return (
-      <Layout hideBottomNav>
-        <div className="container flex min-h-[70vh] flex-col items-center justify-center gap-4 py-8">
-          <h1 className="text-2xl font-bold">Acesso restrito</h1>
-          <p className="max-w-md text-center text-muted-foreground">
-            Este painel é exclusivo para administradores. Faça login com a conta de administrador
-            para continuar.
-          </p>
-          <Link to="/login">
-            <Button className="bg-gradient-primary">Ir para login</Button>
-          </Link>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
     <Layout hideBottomNav>
       <div className="container space-y-6 py-6">
@@ -32,57 +13,69 @@ const AdminDashboard = () => {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Painel Administrativo</h1>
             <p className="text-sm text-muted-foreground">
-              Bem-vindo, {user?.name || user?.email}. Gerencie produtos, categorias e pedidos da sua loja.
+              Gerencie produtos, categorias e pedidos da sua loja.
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              Visualizar loja
-            </Button>
+            <Link to="/admin/produtos">
+              <Button className="bg-gradient-primary" size="sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Novo produto
+              </Button>
+            </Link>
+            <Link to="/admin/produtos">
+              <Button variant="outline" size="sm">
+                <Package className="mr-2 h-4 w-4" />
+                Gerenciar produtos
+              </Button>
+            </Link>
           </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Vendas hoje</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">R$ 0,00</p>
-              <p className="text-xs text-muted-foreground">Métrica demonstrativa</p>
+              <p className="text-xs text-muted-foreground">Integracao com Supabase</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pedidos abertos</CardTitle>
+              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">0</p>
-              <p className="text-xs text-muted-foreground">Integração com Supabase pode ser adicionada</p>
+              <p className="text-xs text-muted-foreground">Integracao com Supabase</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Produtos ativos</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">0</p>
-              <p className="text-xs text-muted-foreground">Use este painel para gerenciar o catálogo</p>
+              <p className="text-xs text-muted-foreground">Cadastre produtos no painel</p>
             </CardContent>
           </Card>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Últimos pedidos (demo)</CardTitle>
+            <CardTitle>Ultimos pedidos</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Código</TableHead>
+                  <TableHead>Codigo</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Total</TableHead>
@@ -90,24 +83,9 @@ const AdminDashboard = () => {
               </TableHeader>
               <TableBody>
                 <TableRow>
-                  <TableCell>#0001</TableCell>
-                  <TableCell>Cliente Exemplo</TableCell>
-                  <TableCell>
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                      Pago
-                    </span>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    Nenhum pedido ainda
                   </TableCell>
-                  <TableCell className="text-right">R$ 199,90</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>#0002</TableCell>
-                  <TableCell>Maria Souza</TableCell>
-                  <TableCell>
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                      Pendente
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">R$ 89,90</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -119,4 +97,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-

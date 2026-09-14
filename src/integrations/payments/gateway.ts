@@ -1,97 +1,94 @@
-export type PaymentMethod = 'pix' | 'credit_card';
+import QRCode from 'qrcode';
 
-export type PaymentRequest = {
-  amount: number;
-  method: PaymentMethod;
-  currency?: string;
-};
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+export type PaymentMethod = 'pix';
 
 export type PaymentResult =
-  | { type: 'redirect'; url: string }
   | { type: 'pix_qr'; qrCodeImageUrl: string; qrCodeText?: string }
-  | { type: 'success' }
   | { type: 'error'; message: string };
 
-// URL da API de geração de QR Code PIX.
-// Usa VITE_PIX_QR_API_URL se definida; caso contrário, assume backend local.
-const PIX_QR_API_URL =
-  (import.meta.env.VITE_PIX_QR_API_URL as string | undefined) ??
-  'http://localhost:4000/api/pix/charge';
-const PIX_LINK = import.meta.env.VITE_PAYMENT_LINK_PIX as string | undefined;
-const CARD_LINK = import.meta.env.VITE_PAYMENT_LINK_CARD as string | undefined;
+function generatePixPayload(amount: number): string {
+  const merchantName = 'Sheik dos Imports';
+  const merchantCity = 'Sao Paulo';
+  const txId = Math.random().toString(36).substring(2, 14).toUpperCase();
 
-/**
- * Gateway de pagamento simples baseado em Payment Links.
- *
- * - Se estiver configurado um Payment Link (Stripe, Mercado Pago, etc) via .env,
- *   o usuário é redirecionado para a página de pagamento externa.
- * - Se não houver Payment Link configurado, cai em um fluxo "mock" que apenas
- *   simula o pagamento com sucesso.
- *
- * Para uso real:
- * - Crie um Payment Link no seu gateway e coloque a URL em:
- *   - VITE_PAYMENT_LINK_PIX
- *   - VITE_PAYMENT_LINK_CARD
- */
-export async function createPayment(
-  request: PaymentRequest,
-): Promise<PaymentResult> {
-  const { method } = request;
+  function formatField(id: string, value: string): string {
+    const len = value.length.toString().padStart(2, '0');
+    return `${id}${len}${value}`;
+  }
 
-  // Fluxo PIX com geração de QR Code via API própria
-  if (method === 'pix' && PIX_QR_API_URL) {
-    try {
-      const response = await fetch(PIX_QR_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-      });
-
-      if (!response.ok) {
-        console.error('Erro ao gerar QR Code PIX', await response.text());
-        return {
-          type: 'error',
-          message: 'Não foi possível gerar o QR Code PIX.',
-        };
+  function crc16(payload: string): string {
+    let crc = 0xffff;
+    for (let i = 0; i < payload.length; i++) {
+      crc ^= payload.charCodeAt(i) << 8;
+      for (let j = 0; j < 8; j++) {
+        crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1;
+        crc &= 0xffff;
       }
-
-      const data = await response.json() as {
-        qrCodeImageUrl: string;
-        qrCodeText?: string;
-      };
-
-      if (!data.qrCodeImageUrl) {
-        return {
-          type: 'error',
-          message: 'Resposta inválida da API de PIX.',
-        };
-      }
-
-      return {
-        type: 'pix_qr',
-        qrCodeImageUrl: data.qrCodeImageUrl,
-        qrCodeText: data.qrCodeText,
-      };
-    } catch (error) {
-      console.error('Erro inesperado ao gerar QR Code PIX', error);
-      return {
-        type: 'error',
-        message: 'Erro inesperado ao gerar QR Code PIX.',
-      };
     }
+    return crc.toString(16).toUpperCase().padStart(4, '0');
   }
 
-  // Fallback baseado em Payment Links (outras formas de pagamento)
-  const link = method === 'pix' ? PIX_LINK : CARD_LINK;
+  let payload = '';
+  payload += formatField('00', '01');
+  payload += formatField('26', formatField('00', 'br.gov.bcb.pix') + formatField('01', 'pix@lacerdaexpress.com'));
+  payload += formatField('52', '0000');
+  payload += formatField('53', '986');
+  payload += formatField('54', amount.toFixed(2));
+  payload += formatField('58', 'BR');
+  payload += formatField('59', merchantName);
+  payload += formatField('60', merchantCity);
+  payload += formatField('62', formatField('05', txId));
 
-  if (link) {
-    return { type: 'redirect', url: link };
-  }
-
-  // Mock genérico: simula aprovação em ~2s
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-  return { type: 'success' };
+  const payloadWithCrc = payload + '6304';
+  return payloadWithCrc + crc16(payloadWithCrc);
 }
 
+async function generatePixQRCode(amount: number): Promise<PaymentResult> {
+  try {
+    const payload = generatePixPayload(amount);
+    const qrCodeImageUrl = await QRCode.toDataURL(payload.toUpperCase(), {
+      width: 400,
+      margin: 2,
+      color: { dark: '#000000', light: '#ffffff' },
+    });
+    return {
+      type: 'pix_qr',
+      qrCodeImageUrl,
+      qrCodeText: payload.toUpperCase(),
+    };
+  } catch (error) {
+    console.error('Erro ao gerar QR Code PIX:', error);
+    return { type: 'error', message: 'Erro ao gerar QR Code PIX.' };
+  }
+}
+
+export async function createPixPayment(amount: number): Promise<PaymentResult> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+
+    const response = await fetch(`${API_URL}/api/create-pix-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, description: 'Pedido Sheik dos Imports' }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return generatePixQRCode(amount);
+    }
+
+    return {
+      type: 'pix_qr',
+      qrCodeImageUrl: `data:image/png;base64,${data.qrCode}`,
+      qrCodeText: data.copyPaste,
+    };
+  } catch {
+    return generatePixQRCode(amount);
+  }
+}

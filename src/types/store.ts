@@ -80,7 +80,7 @@ export interface Order {
   items: CartItem[];
   total: number;
   status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
-  payment_method: 'pix' | 'credit_card';
+  payment_method: 'pix';
   shipping_address: ShippingAddress;
   created_at: string;
 }

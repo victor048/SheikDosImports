@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { products, categories, brands } from '@/data/mockData';
+import { useProducts } from '@/hooks/useProducts';
+import { useCategories, useBrands } from '@/hooks/useCategories';
 
 const SearchPage = () => {
   const [query, setQuery] = useState('');
@@ -17,9 +18,13 @@ const SearchPage = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [sortBy, setSortBy] = useState('relevance');
 
+  const { data: products = [], isLoading } = useProducts();
+  const { data: categories = [] } = useCategories();
+  const { data: brands = [] } = useBrands();
+
   const filteredProducts = products.filter(product => {
     const matchesQuery = product.name.toLowerCase().includes(query.toLowerCase()) ||
-      product.description.toLowerCase().includes(query.toLowerCase());
+      (product.description && product.description.toLowerCase().includes(query.toLowerCase()));
     const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
     const matchesCategory = selectedCategory === 'all' || product.category_id === selectedCategory;
     const matchesBrand = selectedBrand === 'all' || product.brand === selectedBrand;
@@ -34,7 +39,7 @@ const SearchPage = () => {
       case 'price_desc':
         return b.price - a.price;
       case 'rating':
-        return b.rating - a.rating;
+        return (b.rating || 0) - (a.rating || 0);
       case 'newest':
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       default:
@@ -112,7 +117,7 @@ const SearchPage = () => {
                 </div>
 
                 <div className="space-y-4">
-                  <Label>Faixa de Preço</Label>
+                  <Label>Faixa de Preco</Label>
                   <Slider
                     value={priceRange}
                     onValueChange={setPriceRange}
@@ -163,7 +168,7 @@ const SearchPage = () => {
           </Select>
 
           <div className="flex items-center gap-2 flex-1">
-            <Label className="whitespace-nowrap text-sm">Preço:</Label>
+            <Label className="whitespace-nowrap text-sm">Preco:</Label>
             <div className="w-48">
               <Slider
                 value={priceRange}
@@ -182,10 +187,10 @@ const SearchPage = () => {
               <SelectValue placeholder="Ordenar" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="relevance">Relevância</SelectItem>
-              <SelectItem value="price_asc">Menor Preço</SelectItem>
-              <SelectItem value="price_desc">Maior Preço</SelectItem>
-              <SelectItem value="rating">Avaliação</SelectItem>
+              <SelectItem value="relevance">Relevancia</SelectItem>
+              <SelectItem value="price_asc">Menor Preco</SelectItem>
+              <SelectItem value="price_desc">Maior Preco</SelectItem>
+              <SelectItem value="rating">Avaliacao</SelectItem>
               <SelectItem value="newest">Mais Recentes</SelectItem>
             </SelectContent>
           </Select>
@@ -201,7 +206,7 @@ const SearchPage = () => {
         {/* Results */}
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            {sortedProducts.length} produto{sortedProducts.length !== 1 && 's'} encontrado{sortedProducts.length !== 1 && 's'}
+            {isLoading ? 'Carregando...' : `${sortedProducts.length} produto${sortedProducts.length !== 1 && 's'} encontrado${sortedProducts.length !== 1 && 's'}`}
           </p>
           
           {/* Mobile Sort */}
@@ -210,15 +215,19 @@ const SearchPage = () => {
               <SelectValue placeholder="Ordenar" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="relevance">Relevância</SelectItem>
-              <SelectItem value="price_asc">Menor Preço</SelectItem>
-              <SelectItem value="price_desc">Maior Preço</SelectItem>
-              <SelectItem value="rating">Avaliação</SelectItem>
+              <SelectItem value="relevance">Relevancia</SelectItem>
+              <SelectItem value="price_asc">Menor Preco</SelectItem>
+              <SelectItem value="price_desc">Maior Preco</SelectItem>
+              <SelectItem value="rating">Avaliacao</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {sortedProducts.length > 0 ? (
+        {isLoading ? (
+          <div className="flex min-h-[40vh] items-center justify-center">
+            <p className="text-muted-foreground">Carregando produtos...</p>
+          </div>
+        ) : sortedProducts.length > 0 ? (
           <ProductGrid products={sortedProducts} />
         ) : (
           <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4">

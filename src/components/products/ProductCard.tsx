@@ -25,6 +25,10 @@ export function ProductCard({ product, className }: ProductCardProps) {
     e.preventDefault();
     e.stopPropagation();
     addItem(product, 1);
+    toast({
+      title: 'Adicionado ao carrinho',
+      description: product.name,
+    });
   };
 
   const handleToggleWishlist = (e: React.MouseEvent) => {

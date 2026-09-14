@@ -8,12 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useToast } from '@/hooks/use-toast';
-import { products } from '@/data/mockData';
+import { useProduct } from '@/hooks/useProducts';
 import { cn } from '@/lib/utils';
 
 const ProductDetail = () => {
   const { slug } = useParams();
-  const product = products.find(p => p.slug === slug);
+  const { data: product, isLoading, error } = useProduct(slug || '');
   const { addItem } = useCart();
   const { toggleItem, isFavorite } = useWishlist();
   const { toast } = useToast();
@@ -22,11 +22,21 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
 
-  if (!product) {
+  if (isLoading) {
     return (
       <Layout>
         <div className="container flex min-h-[50vh] items-center justify-center">
-          <p className="text-muted-foreground">Produto não encontrado</p>
+          <p className="text-muted-foreground">Carregando produto...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!product || error) {
+    return (
+      <Layout>
+        <div className="container flex min-h-[50vh] items-center justify-center">
+          <p className="text-muted-foreground">Produto nao encontrado</p>
         </div>
       </Layout>
     );
